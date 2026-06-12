@@ -871,11 +871,11 @@ async def intelligence_scanner():
                 score -= 10
                 reasons.append("نمودج بيع 16")
             elif is_in_neck_and_dominant_three_black_crows:
-                score -= 10
-                reasons.append("نمودج بيع 17")
+                score += 10
+                reasons.append("نمودج معدل 17")
             elif is_full_bullish_engulfing_and_white_soldiers_dominance:
-                score -= 10
-                reasons.append("نمودج بيع 18")
+                score += 10
+                reasons.append("نمودج بيع معدل 18")
 
             # 🚀 تقييم شروط ونماذج الشراء (تعمل في حال عدم وجود خطر يمنعها)
             elif is_pattern_1_double_bottom_bullish:
@@ -1103,14 +1103,14 @@ async def intelligence_scanner():
             )
             
             is_condition_5_early_reversal = (
-                (rsi_1h >= 55 and rsi_1h <= 65 and rsi_2h >= 70 and rsi_1d >= 70) and
+                (rsi_1h >= 45 and rsi_1h <= 65 and rsi_2h >= 60 and rsi_1d >= 60) and
                 (adx_1h <= 25 and adx_4h >= 50) and
                 (macd_signal_1h < 0 and macd_hist_1h > 0 and macd_hist_1d > 0) and
                 (obv_slope_1h > 0 and obv_slope_1d > 0)
             )
             
             is_condition_11_small_tf_reversal = (
-                (rsi_1h >= 60 and rsi_2h >= 70 and rsi_1d <= 40) and
+                (rsi_1h >= 50 and rsi_2h >= 60 and rsi_1d <= 40) and
                 (adx_1h >= 60 and adx_2h >= 60) and
                 (macd_1h > 0 and macd_hist_1h > 0 and macd_hist_2h > 0) and
                 (obv_slope_2h > 0 and obv_slope_4h > 0)
@@ -1259,28 +1259,39 @@ async def intelligence_scanner():
                     reasons.append("🚫 تم الإلغاء: السكور منخفض لكن المكان عشوائي")
                     
             # ==========================================
-            # 🚀 إطلاق إشارة التلجرام فوراً
+            # 🚀 إطلاق إشارة التلجرام فوراً (مع حماية ضد التكرار)
             # ==========================================
             if signal_type != "NONE":  
                 
-                # 1. توثيق الإشارة في القاعدة لبدء تتبعها فوراً
-                await save_new_signal(
-                    symbol=symbol, 
-                    signal_type=signal_type, 
-                    price=price, 
-                    fib_618=fib_618, 
-                    reasons=reasons
-                )
-                
-                # 2. إطلاق الإشعار للتلجرام
-                await trigger_golden_signal(
-                    symbol=symbol, 
-                    score=abs(score),
-                    reasons=reasons, 
-                    fib_618=fib_618, 
-                    price=price, 
-                    direction=signal_type 
-                ) 
+                # 🛡️ جدار الحماية: فحص هل العملة قيد التتبع حالياً (لم تمر 24 ساعة)
+                is_tracking_res = supabase.table("radar_signals") \
+                    .select("id") \
+                    .eq("symbol", symbol) \
+                    .eq("status", "tracking") \
+                    .execute()
+
+                if not is_tracking_res.data:
+                    # 1. توثيق الإشارة في القاعدة لبدء تتبعها فوراً
+                    await save_new_signal(
+                        symbol=symbol, 
+                        signal_type=signal_type, 
+                        price=price, 
+                        fib_618=fib_618, 
+                        reasons=reasons
+                    )
+                    
+                    # 2. إطلاق الإشعار للتلجرام
+                    await trigger_golden_signal(
+                        symbol=symbol, 
+                        score=abs(score),
+                        reasons=reasons, 
+                        fib_618=fib_618, 
+                        price=price, 
+                        direction=signal_type 
+                    )
+                else:
+                    # طباعة صامتة في التيرمنال لمعرفة أن الرادار التقطها ولكن منع التكرار
+                    print(f"⚠️ [منع التكرار] الإشارة للعملة {symbol} نشطة بالفعل، تم إيقاف الإشعار المكرر.")
                 
             # ==========================================
             # 👁️ التتبع المستمر (يُنفذ على كل عملة سواء كان لها إشارة جديدة أم لا)
@@ -1293,8 +1304,8 @@ async def intelligence_scanner():
         logging.error(f"❌ خطأ داخلي في الرادار القناص v11.1: {e}")
 
     print("✅ تم الانتهاء من المسح الاستخباراتي ورصد الأنماط والفخاخ (v11.1) بنجاح.")
-    
-    
+
+
 import hashlib
 from datetime import datetime, timedelta
 import asyncio
